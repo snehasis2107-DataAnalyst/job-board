@@ -1,489 +1,65 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Job Board – Power BI</title>
-<style>
-  :root {
-    --bg: #0f1117;
-    --surface: #1a1d27;
-    --surface2: #22263a;
-    --border: #2e3249;
-    --accent: #6c63ff;
-    --accent2: #00d4aa;
-    --text: #e2e8f0;
-    --muted: #8892a4;
-    --fire: #ff6b35;
-    --tag: #1e2a4a;
-  }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-
-  /* Power BI critical: fixed height, internal scroll, no body overflow */
-  html, body {
-    width: 100%; height: 100%; overflow: hidden;
-    background: var(--bg); color: var(--text);
-    font-family: 'Segoe UI', system-ui, sans-serif;
-    font-size: 13px;
-  }
-
-  #app {
-    display: flex; flex-direction: column;
-    width: 100%; height: 100vh;
-    overflow: hidden;
-  }
-
-  /* ── HEADER (compact) ── */
-  header {
-    background: linear-gradient(135deg, #1a1d27, #0f1117);
-    border-bottom: 1px solid var(--border);
-    padding: 8px 14px;
-    display: flex; align-items: center; justify-content: space-between;
-    flex-shrink: 0;
-  }
-  header h1 { font-size: 1rem; font-weight: 700; color: #fff; }
-  header h1 span { color: var(--accent); }
-  .header-sub { font-size: 0.7rem; color: var(--muted); }
-
-  /* ── CONFIG BAR (1 row, tight) ── */
-  .config-bar {
-    background: var(--surface);
-    border-bottom: 1px solid var(--border);
-    padding: 7px 14px;
-    display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
-    flex-shrink: 0;
-  }
-  .config-bar label { font-size: 0.68rem; color: var(--muted); display: block; margin-bottom: 2px; text-transform: uppercase; letter-spacing: .05em; }
-  .config-bar input, .config-bar select {
-    background: var(--bg); border: 1px solid var(--border); color: var(--text);
-    padding: 5px 8px; border-radius: 6px; font-size: 0.78rem; outline: none;
-    width: 155px; transition: border-color .2s;
-  }
-  .config-bar input:focus, .config-bar select:focus { border-color: var(--accent); }
-  .btn {
-    padding: 6px 14px; border-radius: 6px; border: none; cursor: pointer;
-    font-size: 0.78rem; font-weight: 600; transition: all .2s; white-space: nowrap;
-  }
-  .btn-primary { background: var(--accent); color: #fff; }
-  .btn-primary:hover { background: #5b52e0; }
-  .btn-primary:disabled { opacity: .5; cursor: not-allowed; }
-  .btn-clear { background: var(--surface2); color: var(--muted); border: 1px solid var(--border); }
-
-  /* ── FILTERS BAR ── */
-  .filters-bar {
-    padding: 7px 14px;
-    display: none; gap: 8px; flex-wrap: wrap; align-items: center;
-    border-bottom: 1px solid var(--border);
-    flex-shrink: 0;
-  }
-  .search-wrap { position: relative; }
-  .search-wrap input {
-    background: var(--surface); border: 1px solid var(--border); color: var(--text);
-    padding: 6px 10px 6px 28px; border-radius: 6px; font-size: 0.78rem; width: 210px; outline: none;
-  }
-  .search-wrap input:focus { border-color: var(--accent); }
-  .search-icon { position: absolute; left: 8px; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 12px; }
-  .filter-select {
-    background: var(--surface); border: 1px solid var(--border); color: var(--text);
-    padding: 6px 10px; border-radius: 6px; font-size: 0.76rem; outline: none; cursor: pointer;
-  }
-  .filter-select:focus { border-color: var(--accent); }
-  .stats { margin-left: auto; font-size: 0.74rem; color: var(--muted); white-space: nowrap; }
-  .stats strong { color: var(--accent2); }
-
-  /* ── TABLE AREA scrolls ── */
-  #mainContent {
-    flex: 1 1 0; overflow-y: auto; overflow-x: auto;
-  }
-  #mainContent::-webkit-scrollbar { width: 6px; height: 6px; }
-  #mainContent::-webkit-scrollbar-track { background: var(--bg); }
-  #mainContent::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-
-  .table-wrap { padding: 10px 14px; min-width: 900px; }
-  table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
-  thead th {
-    text-align: left; padding: 8px 10px; color: var(--muted);
-    font-size: 0.68rem; text-transform: uppercase; letter-spacing: .07em;
-    border-bottom: 1px solid var(--border); cursor: pointer; white-space: nowrap; user-select: none;
-    position: sticky; top: 0; background: var(--bg); z-index: 1;
-  }
-  thead th:hover { color: var(--text); }
-  thead th .sort-icon { margin-left: 3px; opacity: .4; }
-  thead th.sorted .sort-icon { opacity: 1; color: var(--accent); }
-
-  tbody tr { border-bottom: 1px solid var(--border); transition: background .12s; }
-  tbody tr:hover { background: var(--surface); }
-  tbody td { padding: 8px 10px; vertical-align: middle; }
-
-  .job-title { font-weight: 600; color: #fff; font-size: 0.8rem; }
-  .badge { display: inline-block; padding: 2px 7px; border-radius: 20px; font-size: 0.68rem; font-weight: 600; }
-  .badge-type { background: var(--tag); color: #a0aec0; }
-  .badge-loc { background: rgba(0,212,170,.1); color: var(--accent2); font-size: 0.68rem; }
-  .applicants { font-size: 0.76rem; }
-  .applicants.hot { color: var(--fire); font-weight: 700; }
-  .applicants.normal { color: var(--muted); }
-  .link-btn {
-    display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px;
-    background: rgba(108,99,255,.15); color: var(--accent);
-    border: 1px solid rgba(108,99,255,.3); border-radius: 5px;
-    text-decoration: none; font-size: 0.72rem; font-weight: 600; transition: all .2s;
-  }
-  .link-btn:hover { background: rgba(108,99,255,.3); }
-  .skills-cell { display: flex; flex-wrap: wrap; gap: 3px; max-width: 180px; }
-  .skill-tag { background: var(--surface2); color: var(--muted); padding: 1px 5px; border-radius: 3px; font-size: 0.65rem; }
-
-  .match-score {
-    width: 32px; height: 32px; border-radius: 50%; border: 2px solid;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 0.64rem; font-weight: 700;
-  }
-  .score-high { border-color: var(--accent2); color: var(--accent2); background: rgba(0,212,170,.08); }
-  .score-med  { border-color: #f6c90e; color: #f6c90e; background: rgba(246,201,14,.08); }
-  .score-low  { border-color: var(--muted); color: var(--muted); background: rgba(136,146,164,.08); }
-
-  /* ── LOADING ── */
-  .loading-overlay {
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    height: 100%; min-height: 200px; gap: 14px; padding: 40px;
-  }
-  .spinner { width: 36px; height: 36px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 1s linear infinite; }
-  @keyframes spin { to { transform: rotate(360deg); } }
-  .loading-text { color: var(--muted); font-size: 0.85rem; }
-  .loading-sub { color: var(--accent); font-size: 0.76rem; }
-
-  /* ── EMPTY / ERROR ── */
-  .empty-state { text-align: center; padding: 50px 20px; color: var(--muted); }
-  .empty-state .icon { font-size: 2.5rem; margin-bottom: 10px; }
-  .error-msg { margin: 16px; padding: 12px 16px; background: rgba(239,68,68,.1); border: 1px solid rgba(239,68,68,.3); border-radius: 8px; color: #f87171; font-size: 0.8rem; }
-
-  /* ── PAGINATION ── */
-  .pagination {
-    display: flex; align-items: center; justify-content: center; gap: 6px;
-    padding: 10px 14px 14px; flex-shrink: 0;
-  }
-  .page-btn { background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 4px 11px; border-radius: 5px; cursor: pointer; font-size: 0.76rem; transition: all .2s; }
-  .page-btn:hover, .page-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
-  .page-info { color: var(--muted); font-size: 0.76rem; padding: 0 6px; }
-
-  /* ── AUTO-LOAD BANNER ── */
-  .autoload-bar {
-    background: rgba(108,99,255,.12); border-bottom: 1px solid rgba(108,99,255,.25);
-    padding: 5px 14px; font-size: 0.74rem; color: var(--accent);
-    display: flex; align-items: center; gap: 8px; flex-shrink: 0;
-  }
-  .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: pulse 1.2s infinite; }
-  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
-</style>
-</head>
-<body>
-<div id="app">
-
-  <header>
-    <div>
-      <h1>🎯 AI Job Board — <span>Snehasis Chakraborty</span></h1>
-      <div class="header-sub">Senior BI & Reporting Analytics • 9.8 yrs • Power BI | SQL | Excel | TM1</div>
-    </div>
-    <div style="font-size:0.7rem;color:var(--muted);text-align:right">
-      Embedded in Power BI<br>
-      <span style="color:var(--accent2)">●</span> Live AI Search
-    </div>
-  </header>
-
-  <div id="autoloadBar" class="autoload-bar">
-    <div class="dot"></div>
-    Auto-loading jobs on startup… change Role / Level / Location and click Refresh to update.
-  </div>
-
-  <div class="config-bar">
-    <div>
-      <label>Role / Title</label>
-      <input id="roleInput" type="text" value="Business Intelligence Analyst"/>
-    </div>
-    <div>
-      <label>Seniority</label>
-      <select id="levelInput">
-        <option value="Senior">Senior</option>
-        <option value="Mid-Level">Mid-Level</option>
-        <option value="Lead">Lead</option>
-        <option value="Manager">Manager</option>
-        <option value="Principal">Principal</option>
-      </select>
-    </div>
-    <div>
-      <label>Location</label>
-      <input id="locationInput" type="text" value="India / Remote"/>
-    </div>
-    <div>
-      <label>Count</label>
-      <select id="countInput">
-        <option value="30">30</option>
-        <option value="50" selected>50</option>
-        <option value="75">75</option>
-        <option value="100">100</option>
-      </select>
-    </div>
-    <div>
-      <label>🔑 Anthropic API Key</label>
-      <input id="apiKeyInput" type="password" placeholder="sk-ant-api03-…" style="width:210px"/>
-    </div>
-    <div style="display:flex;gap:6px;align-self:flex-end">
-      <button class="btn btn-primary" id="fetchBtn" onclick="fetchJobs()">🔄 Refresh</button>
-      <button class="btn btn-clear" onclick="clearResults()">✕</button>
-    </div>
-  </div>
-
-  <div class="filters-bar" id="filtersBar">
-    <div class="search-wrap">
-      <span class="search-icon">🔍</span>
-      <input type="text" id="searchInput" placeholder="Search jobs, companies, skills…" oninput="applyFilters()"/>
-    </div>
-    <select class="filter-select" id="typeFilter" onchange="applyFilters()">
-      <option value="">All Types</option>
-      <option value="Full-time">Full-time</option>
-      <option value="Contract">Contract</option>
-      <option value="Remote">Remote</option>
-      <option value="Hybrid">Hybrid</option>
-    </select>
-    <select class="filter-select" id="matchFilter" onchange="applyFilters()">
-      <option value="">All Match</option>
-      <option value="high">High (80+)</option>
-      <option value="med">Medium (60–79)</option>
-      <option value="low">Low (&lt;60)</option>
-    </select>
-    <select class="filter-select" id="hotFilter" onchange="applyFilters()">
-      <option value="">All Jobs</option>
-      <option value="hot">🔥 Hot only</option>
-      <option value="normal">Normal only</option>
-    </select>
-    <div class="stats" id="statsLabel"></div>
-  </div>
-
-  <div id="mainContent">
-    <div class="loading-overlay">
-      <div class="spinner"></div>
-      <div class="loading-text">Loading jobs for you…</div>
-      <div class="loading-sub">AI is generating tailored listings</div>
-    </div>
-  </div>
-
-</div>
-
-<script>
-let allJobs = [], filteredJobs = [];
-let sortCol = 'match', sortDir = -1;
-let currentPage = 1;
-const PAGE_SIZE = 20;
-
 async function fetchJobs() {
   const role     = document.getElementById('roleInput').value.trim();
   const level    = document.getElementById('levelInput').value;
   const location = document.getElementById('locationInput').value.trim();
   const count    = document.getElementById('countInput').value;
-  const apiKey   = document.getElementById('apiKeyInput').value.trim();
-
-  if (!apiKey || !apiKey.startsWith('sk-ant')) {
-    document.getElementById('mainContent').innerHTML =
-      `<div class="error-msg">⚠️ Please enter your Anthropic API key above (starts with <strong>sk-ant-…</strong>).<br>Get one free at <a href="https://console.anthropic.com" target="_blank" style="color:var(--accent)">console.anthropic.com</a> → API Keys.</div>`;
-    return;
-  }
 
   const btn = document.getElementById('fetchBtn');
   btn.disabled = true; btn.textContent = '⏳…';
+
   document.getElementById('filtersBar').style.display = 'none';
-  document.getElementById('autoloadBar').style.display = 'none';
   document.getElementById('mainContent').innerHTML = `
     <div class="loading-overlay">
       <div class="spinner"></div>
       <div class="loading-text">AI scanning job boards…</div>
-      <div class="loading-sub">Generating ${count} tailored jobs for ${level} ${role}</div>
+      <div class="loading-sub">Generating ${count} tailored jobs</div>
     </div>`;
 
-  const prompt = `You are a job board API. Generate exactly ${count} realistic job listings for:
-- Candidate: Snehasis Chakraborty
-- Seeking: ${level} ${role}
-- Location: ${location}
-- Experience: 9.8 years — Business Intelligence, Reporting & Analytics
-- Skills: Power BI, SQL, Advanced Excel, Power Query, VBA, TM1, Tableau, Looker, Alteryx, Python, Data Modelling, KPI Frameworks, Executive Dashboards, MI Reporting
-- Employer: PwC Acceleration Center India
-
-Return ONLY a valid JSON array (no markdown, no preamble) with exactly ${count} objects. Each object:
-{
-  "id": number,
-  "title": string,
-  "company": string (real companies: MNCs, Indian IT, consulting, fintech, product),
-  "location": string,
-  "type": "Full-time" | "Contract" | "Hybrid" | "Remote",
-  "applicants": number (15–450, ~20% above 200),
-  "match": number (50–98),
-  "skills": [string, string, string],
-  "posted": string (e.g. "2d ago"),
-  "linkedin_url": "https://www.linkedin.com/jobs/view/" + 10-digit number,
-  "salary": string (₹ for India, $ for global)
-}
-Mix of cities: Bengaluru, Mumbai, Hyderabad, Pune, Chennai, Kolkata, Delhi NCR, Remote.
-Companies: Deloitte, EY, KPMG, Accenture, Capgemini, Wipro, Infosys, TCS, Cognizant, McKinsey, Fractal Analytics, Mu Sigma, LatentView, Tiger Analytics, Mastercard, HSBC, Goldman Sachs, JP Morgan, Amazon, Microsoft, Google, Razorpay, Flipkart, and others.
-Output ONLY the JSON array.`;
+  const prompt = `Generate ${count} realistic job listings for a ${level} ${role} in ${location}.
+Return ONLY a valid JSON array.`;
 
   try {
-    const res  = await fetch("https://api.anthropic.com/v1/messages", {
+    const res = await fetch("https://anthropic-proxy.snehasis-zivanta.workers.dev", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-        "anthropic-dangerous-request-source": "user-provided-key"
+        // OPTIONAL (if you enabled client key in backend)
+        // "x-client-key": "your-secure-client-key"
       },
       body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
-        max_tokens: 16000,
-        messages: [{ role: "user", content: prompt }]
+        model: "claude-3-haiku-20240307",
+        max_tokens: 4000,
+        messages: [
+          { role: "user", content: prompt }
+        ]
       })
     });
+
+    if (!res.ok) {
+      throw new Error(`Server error: ${res.status}`);
+    }
+
     const data = await res.json();
-    let text = data.content.map(i => i.text || '').join('');
+
+    let text = data.content?.map(i => i.text || '').join('') || '';
     text = text.replace(/```json|```/g, '').trim();
-    const s = text.indexOf('['), e = text.lastIndexOf(']');
-    if (s === -1 || e === -1) throw new Error('Invalid response — try again');
+
+    const s = text.indexOf('[');
+    const e = text.lastIndexOf(']');
+    if (s === -1 || e === -1) throw new Error('Invalid AI response');
+
     allJobs = JSON.parse(text.slice(s, e + 1));
     filteredJobs = [...allJobs];
     currentPage = 1;
+
     sortAndRender();
     document.getElementById('filtersBar').style.display = 'flex';
-  } catch(err) {
+
+  } catch (err) {
     document.getElementById('mainContent').innerHTML =
       `<div class="error-msg">⚠️ ${err.message}</div>`;
   } finally {
-    btn.disabled = false; btn.textContent = '🔄 Refresh';
+    btn.disabled = false;
+    btn.textContent = '🔄 Refresh';
   }
 }
-
-function clearResults() {
-  allJobs = []; filteredJobs = [];
-  document.getElementById('filtersBar').style.display = 'none';
-  document.getElementById('mainContent').innerHTML = `
-    <div class="empty-state">
-      <div class="icon">💼</div>
-      <p style="color:var(--text);margin-bottom:6px">Cleared. Click Refresh to load jobs.</p>
-    </div>`;
-}
-
-function applyFilters() {
-  const q     = document.getElementById('searchInput').value.toLowerCase();
-  const type  = document.getElementById('typeFilter').value;
-  const matchF= document.getElementById('matchFilter').value;
-  const hotF  = document.getElementById('hotFilter').value;
-  filteredJobs = allJobs.filter(j => {
-    if (q && !`${j.title} ${j.company} ${j.location} ${(j.skills||[]).join(' ')}`.toLowerCase().includes(q)) return false;
-    if (type && j.type !== type) return false;
-    if (matchF === 'high' && j.match < 80) return false;
-    if (matchF === 'med'  && (j.match < 60 || j.match >= 80)) return false;
-    if (matchF === 'low'  && j.match >= 60) return false;
-    if (hotF === 'hot'    && j.applicants <= 200) return false;
-    if (hotF === 'normal' && j.applicants > 200)  return false;
-    return true;
-  });
-  currentPage = 1;
-  sortAndRender();
-}
-
-function sortBy(col) {
-  if (sortCol === col) sortDir *= -1; else { sortCol = col; sortDir = -1; }
-  sortAndRender();
-}
-
-function sortAndRender() {
-  filteredJobs.sort((a, b) => {
-    let av = a[sortCol], bv = b[sortCol];
-    if (typeof av === 'string') { av = av.toLowerCase(); bv = bv.toLowerCase(); }
-    return av < bv ? sortDir : av > bv ? -sortDir : 0;
-  });
-  renderTable();
-}
-
-function renderTable() {
-  const total  = filteredJobs.length;
-  const pages  = Math.ceil(total / PAGE_SIZE);
-  const start  = (currentPage - 1) * PAGE_SIZE;
-  const slice  = filteredJobs.slice(start, start + PAGE_SIZE);
-  const hotCnt = filteredJobs.filter(j => j.applicants > 200).length;
-
-  document.getElementById('statsLabel').innerHTML =
-    `<strong>${slice.length}</strong> / <strong>${total}</strong> jobs &nbsp;|&nbsp; 🔥 <strong>${hotCnt}</strong> hot`;
-
-  const cols = [
-    { key:'match',      label:'Match' },
-    { key:'title',      label:'Job Title' },
-    { key:'company',    label:'Company' },
-    { key:'location',   label:'Location' },
-    { key:'type',       label:'Type' },
-    { key:'salary',     label:'Salary' },
-    { key:'applicants', label:'Applicants' },
-    { key:'posted',     label:'Posted' },
-    { key:'skills',     label:'Skills' },
-    { key:'apply',      label:'Apply' },
-  ];
-  const unsortable = new Set(['skills','apply']);
-  const thead = cols.map(c => {
-    if (unsortable.has(c.key)) return `<th>${c.label}</th>`;
-    const icon = sortCol === c.key ? (sortDir === -1 ? '↓' : '↑') : '↕';
-    return `<th class="${sortCol===c.key?'sorted':''}" onclick="sortBy('${c.key}')">${c.label} <span class="sort-icon">${icon}</span></th>`;
-  }).join('');
-
-  const tbody = slice.map(j => {
-    const hot = j.applicants > 200;
-    const sc  = j.match >= 80 ? 'score-high' : j.match >= 60 ? 'score-med' : 'score-low';
-    const sk  = (j.skills||[]).map(s=>`<span class="skill-tag">${s}</span>`).join('');
-    return `<tr>
-      <td><div class="match-score ${sc}">${j.match}%</div></td>
-      <td><div class="job-title">${hot?'🔥 ':''}${j.title}</div></td>
-      <td style="color:#cbd5e0;font-weight:500">${j.company}</td>
-      <td><span class="badge badge-loc">${j.location}</span></td>
-      <td><span class="badge badge-type">${j.type}</span></td>
-      <td style="color:#a0aec0;white-space:nowrap">${j.salary||'—'}</td>
-      <td><span class="applicants ${hot?'hot':'normal'}">${hot?'🔥 ':''}${j.applicants}</span></td>
-      <td style="color:var(--muted);white-space:nowrap">${j.posted}</td>
-      <td><div class="skills-cell">${sk}</div></td>
-      <td><a href="${j.linkedin_url}" target="_blank" class="link-btn">🔗 Apply</a></td>
-    </tr>`;
-  }).join('');
-
-  let paginationHtml = '';
-  if (pages > 1) {
-    const btns = [];
-    for (let p = 1; p <= pages; p++) {
-      if (p === 1 || p === pages || Math.abs(p - currentPage) <= 1) {
-        btns.push(`<button class="page-btn${p===currentPage?' active':''}" onclick="goPage(${p})">${p}</button>`);
-      } else if (btns[btns.length-1] !== '…') btns.push('…');
-    }
-    paginationHtml = `<div class="pagination">${btns.map(b=>b==='…'?`<span class="page-info">…</span>`:b).join('')}</div>`;
-  }
-
-  document.getElementById('mainContent').innerHTML = `
-    <div class="table-wrap">
-      <table>
-        <thead><tr>${thead}</tr></thead>
-        <tbody>${tbody||`<tr><td colspan="10" style="text-align:center;padding:30px;color:var(--muted)">No jobs match your filters</td></tr>`}</tbody>
-      </table>
-    </div>
-    ${paginationHtml}`;
-}
-
-function goPage(p) {
-  currentPage = p;
-  renderTable();
-  document.getElementById('mainContent').scrollTop = 0;
-}
-
-// ── Show welcome state on load (API key required) ──
-window.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('autoloadBar').style.display = 'none';
-  document.getElementById('mainContent').innerHTML = `
-    <div class="empty-state">
-      <div class="icon">🔑</div>
-      <p style="color:var(--text);font-size:0.95rem;margin-bottom:8px">Enter your Anthropic API key above to load jobs</p>
-      <p style="font-size:0.78rem">Get a free key at <a href="https://console.anthropic.com" target="_blank" style="color:var(--accent)">console.anthropic.com</a> → API Keys</p>
-    </div>`;
-});
-</script>
-</body>
-</html>
