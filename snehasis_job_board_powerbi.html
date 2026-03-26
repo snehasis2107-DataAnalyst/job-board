@@ -222,6 +222,10 @@
         <option value="100">100</option>
       </select>
     </div>
+    <div>
+      <label>🔑 Anthropic API Key</label>
+      <input id="apiKeyInput" type="password" placeholder="sk-ant-api03-…" style="width:210px"/>
+    </div>
     <div style="display:flex;gap:6px;align-self:flex-end">
       <button class="btn btn-primary" id="fetchBtn" onclick="fetchJobs()">🔄 Refresh</button>
       <button class="btn btn-clear" onclick="clearResults()">✕</button>
@@ -275,6 +279,13 @@ async function fetchJobs() {
   const level    = document.getElementById('levelInput').value;
   const location = document.getElementById('locationInput').value.trim();
   const count    = document.getElementById('countInput').value;
+  const apiKey   = document.getElementById('apiKeyInput').value.trim();
+
+  if (!apiKey || !apiKey.startsWith('sk-ant')) {
+    document.getElementById('mainContent').innerHTML =
+      `<div class="error-msg">⚠️ Please enter your Anthropic API key above (starts with <strong>sk-ant-…</strong>).<br>Get one free at <a href="https://console.anthropic.com" target="_blank" style="color:var(--accent)">console.anthropic.com</a> → API Keys.</div>`;
+    return;
+  }
 
   const btn = document.getElementById('fetchBtn');
   btn.disabled = true; btn.textContent = '⏳…';
@@ -316,7 +327,12 @@ Output ONLY the JSON array.`;
   try {
     const res  = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+        "anthropic-dangerous-request-source": "user-provided-key"
+      },
       body: JSON.stringify({
         model: "claude-sonnet-4-20250514",
         max_tokens: 16000,
@@ -458,9 +474,15 @@ function goPage(p) {
   document.getElementById('mainContent').scrollTop = 0;
 }
 
-// ── AUTO-LOAD on page open ──
+// ── Show welcome state on load (API key required) ──
 window.addEventListener('DOMContentLoaded', () => {
-  setTimeout(fetchJobs, 400);
+  document.getElementById('autoloadBar').style.display = 'none';
+  document.getElementById('mainContent').innerHTML = `
+    <div class="empty-state">
+      <div class="icon">🔑</div>
+      <p style="color:var(--text);font-size:0.95rem;margin-bottom:8px">Enter your Anthropic API key above to load jobs</p>
+      <p style="font-size:0.78rem">Get a free key at <a href="https://console.anthropic.com" target="_blank" style="color:var(--accent)">console.anthropic.com</a> → API Keys</p>
+    </div>`;
 });
 </script>
 </body>
